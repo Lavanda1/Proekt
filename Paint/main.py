@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageTk
 import copy
 from collections import deque
 
-# ОКНО ПРОГРАММЫ
+# ОКНО ПРОГРАМЫ
 root = tk.Tk()
 root.title("MyPaint — Layers Pro")
 root.geometry("1100x720")
