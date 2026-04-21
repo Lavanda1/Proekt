@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import colorchooser, messagebox
+from tkinter import colorchooser, messagebox, filedialog
 from PIL import Image, ImageDraw, ImageTk
 import copy
 from collections import deque
@@ -158,6 +158,26 @@ def set_mode(m):
     global mode
     mode = m
 
+# Функция сохранения (определяем ДО того, как используем)
+def save_image():
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".png",
+        filetypes=[
+            ("PNG файлы", "*.png"),
+            ("JPEG файлы", "*.jpg"),
+            ("Все файлы", "*.*")
+        ]
+    )
+
+    if file_path:
+        final_image = Image.new("RGB", (CANVAS_W, CANVAS_H), "white")
+        for i, layer in enumerate(layers):
+            if layers_visibility[i]:
+                final_image.paste(layer, (0, 0), layer)
+
+        final_image.save(file_path)
+        messagebox.showinfo("Сохранено", f"Изображение сохранено как:\n{file_path}")
+
 for name, m in [
     ("Кисть", "brush"),
     ("Ластик", "eraser"),
@@ -166,6 +186,7 @@ for name, m in [
 ]:
     tk.Button(tool_panel, text=name, width=14, command=lambda m=m: set_mode(m)).pack(pady=2)
 
+tk.Button(tool_panel, text="💾 Сохранить", width=14, command=save_image).pack(pady=2)
 tk.Button(tool_panel, text="⬅ назад", command=lambda: undo()).pack(pady=10)
 tk.Button(tool_panel, text="➡ вперед", command=lambda: redo()).pack()
 
@@ -257,10 +278,6 @@ def draw(e):
 
     if mode == "picker":
         pick_color(e)
-        return
-
-    if mode == "fill":
-        flood_fill(e.x, e.y)
         return
 
     if mode == "fill":
