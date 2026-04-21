@@ -162,6 +162,7 @@ for name, m in [
     ("Кисть", "brush"),
     ("Ластик", "eraser"),
     ("Заливка", "fill"),
+    ("Пипетка", "picker"),
 ]:
     tk.Button(tool_panel, text=name, width=14, command=lambda m=m: set_mode(m)).pack(pady=2)
 
@@ -190,6 +191,23 @@ def choose_color():
 tk.Button(top, text="Цвет", command=choose_color).pack(side=tk.LEFT, padx=5)
 color_preview = tk.Label(top, bg=current_color, width=3)
 color_preview.pack(side=tk.LEFT)
+
+#ПИПЕТКА - выбор цвета с холста
+def pick_color(e):
+    global current_color, mode
+    img = layers[active_layer_index]
+
+    if 0 <= e.x < CANVAS_W and 0 <= e.y < CANVAS_H:
+        pixel = img.getpixel((e.x, e.y))
+
+        if len(pixel) == 4:
+            hex_color = f"#{pixel[0]:02x}{pixel[1]:02x}{pixel[2]:02x}"
+        else:
+            hex_color = f"#{pixel[0]:02x}{pixel[1]:02x}{pixel[2]:02x}"
+
+        current_color = hex_color
+        color_preview.config(bg=current_color)
+        mode = "brush"  #<- АВТОМАТИЧЕСКИ ВОЗВРАЩАЕМСЯ НА КИСТЬ
 
 # ЗАЛИВКА
 def flood_fill(x, y):
@@ -236,6 +254,14 @@ def smooth_line(x0, y0, x1, y1, color, r):
 
 def draw(e):
     global last_x, last_y
+
+    if mode == "picker":
+        pick_color(e)
+        return
+
+    if mode == "fill":
+        flood_fill(e.x, e.y)
+        return
 
     if mode == "fill":
         flood_fill(e.x, e.y)
