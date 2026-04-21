@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageTk
 import copy
 from collections import deque
 
-# ОКНО ПРОГРАМЫ
+# ОКНО ПРОГРАММЫ
 root = tk.Tk()
 root.title("MyPaint — Layers Pro")
 root.geometry("1100x720")
@@ -76,6 +76,15 @@ def delete_layer():
     update_layer_list()
     update_canvas()
 
+def clear_current_layer():
+    """Очищает текущий активный слой"""
+    if messagebox.askyesno("Очистка слоя", f"Вы действительно хотите очистить слой {active_layer_index + 1}?"):
+        save_history()
+        # Создаем новый пустой слой (полностью прозрачный)
+        layers[active_layer_index] = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
+        rebuild_drawers()
+        update_canvas()
+
 def move_layer_up():
     global active_layer_index
     if active_layer_index <= 0:
@@ -139,6 +148,7 @@ tk.Button(layer_panel, text="🗑 Удалить", command=delete_layer).pack(fi
 tk.Button(layer_panel, text="⬆ Вверх", command=move_layer_up).pack(fill=tk.X)
 tk.Button(layer_panel, text="⬇ Вниз", command=move_layer_down).pack(fill=tk.X)
 tk.Button(layer_panel, text="👁 Вкл/Выкл", command=toggle_layer_visibility).pack(fill=tk.X)
+tk.Button(layer_panel, text="🧹 Очистить слой", command=clear_current_layer).pack(fill=tk.X, pady=2)
 
 # КНОПКИ СЛЕВА
 tool_panel = tk.Frame(root)
@@ -189,7 +199,7 @@ def flood_fill(x, y):
     w, h = img.size
 
     target = px[x, y]
-    fill_color = ImageColor = Image.new("RGBA", (1, 1), current_color).getpixel((0, 0))
+    fill_color = Image.new("RGBA", (1, 1), current_color).getpixel((0, 0))
 
     if target == fill_color:
         return
