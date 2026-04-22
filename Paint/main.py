@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw, ImageTk
 import copy
 from collections import deque
 
-# ОКНО ПРОГРАМЫ
+# ОКНО ПРОГРАММЫ
 root = tk.Tk()
 root.title("MyPaint — Layers Pro")
 root.geometry("1100x720")
@@ -24,7 +24,13 @@ zoom_level = 1.0
 shape_start_x = None
 shape_start_y = None
 shape_preview = None
-fill_shape = False # Заливать фигуру
+fill_shape = False  # Заливать фигуру
+
+# Для перемещения холста
+pan_start_x = 0
+pan_start_y = 0
+canvas_offset_x = 0
+canvas_offset_y = 0
 
 # СЛОИ
 layers = []
@@ -54,7 +60,7 @@ canvas_img = canvas.create_image(0, 0, anchor="nw", image=tk_image)
 
 
 def get_real_coords(e):
-    # Преобразует экранные координаты мыши в реальные координаты на изображении с учётом масштаба
+    """Преобразует экранные координаты мыши в реальные координаты на изображении с учётом масштаба и смещения"""
     bbox = canvas.bbox(canvas_img)
     if bbox:
         img_x, img_y = bbox[0], bbox[1]
@@ -83,8 +89,6 @@ def update_canvas():
     else:
         tk_image = ImageTk.PhotoImage(base)
     canvas.itemconfig(canvas_img, image=tk_image)
-    # Изображение всегда в левом верхнем углу
-    canvas.coords(canvas_img, 0, 0)
 
 
 # ФУНКЦИИ ЛУПЫ
@@ -107,6 +111,30 @@ def reset_zoom():
     zoom_level = 1.0
     canvas.coords(canvas_img, 0, 0)
     update_canvas()
+
+
+# ФУНКЦИИ ДЛЯ РУКИ (ПЕРЕМЕЩЕНИЕ)
+def start_pan(e):
+    global pan_start_x, pan_start_y
+    if mode == "hand":
+        pan_start_x = e.x
+        pan_start_y = e.y
+        canvas.config(cursor="fleur")
+
+
+def do_pan(e):
+    global pan_start_x, pan_start_y
+    if mode == "hand":
+        dx = e.x - pan_start_x
+        dy = e.y - pan_start_y
+        canvas.move(canvas_img, dx, dy)
+        pan_start_x = e.x
+        pan_start_y = e.y
+
+
+def stop_pan(e):
+    if mode == "hand":
+        canvas.config(cursor="")
 
 
 # СЛОИ: ЛОГИКА
@@ -137,10 +165,8 @@ def delete_layer():
 
 
 def clear_current_layer():
-    # Очищает текущий активный слой
     if messagebox.askyesno("Очистка слоя", f"Очистить слой {active_layer_index + 1}?"):
         save_history()
-        # Создаем новый пустой слой (полностью прозрачный)
         layers[active_layer_index] = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
         rebuild_drawers()
         update_canvas()
@@ -227,12 +253,10 @@ def set_mode(m):
     mode = m
     shape_start_x = None
     shape_start_y = None
-    # Очищаем предпросмотр при смене инструмента
     if shape_preview:
         canvas.delete(shape_preview)
 
 
-# Функция сохранения
 def save_image():
     file_path = filedialog.asksaveasfilename(
         defaultextension=".png",
@@ -249,7 +273,6 @@ def save_image():
 
 # ФУНКЦИИ ДЛЯ ФИГУР
 def draw_rectangle(draw, x1, y1, x2, y2, color, width, fill=False):
-    # Рисует прямоугольник с заданной толщиной и возможностью заливки
     left, top = min(x1, x2), min(y1, y2)
     right, bottom = max(x1, x2), max(y1, y2)
     if fill:
@@ -259,23 +282,17 @@ def draw_rectangle(draw, x1, y1, x2, y2, color, width, fill=False):
 
 
 def draw_line(draw, x1, y1, x2, y2, color, width):
-    # Рисует линию с заданной толщиной
     draw.line([x1, y1, x2, y2], fill=color, width=width)
 
 
 def draw_circle(draw, x1, y1, x2, y2, color, width, fill=False):
-    #Рисует круг с заданной толщиной и возможностью заливки
-
-    # Находим центр и радиус
     center_x = (x1 + x2) // 2
     center_y = (y1 + y2) // 2
     radius = max(abs(x2 - x1), abs(y2 - y1)) // 2
-
     left = center_x - radius
     right = center_x + radius
     top = center_y - radius
     bottom = center_y + radius
-
     if fill:
         draw.ellipse([left, top, right, bottom], fill=color, outline=color, width=width)
     else:
@@ -296,14 +313,12 @@ def start_shape(e):
 def draw_shape_preview(e):
     global shape_preview, shape_start_x, shape_start_y
     if shape_start_x is not None and mode in ["rectangle", "line", "circle"]:
-        # Удаляем старый предпросмотр
         if shape_preview:
             canvas.delete(shape_preview)
 
         real_x, real_y = get_real_coords(e)
         preview_width = brush_size
 
-        # Создаем новый предпросмотр в зависимости от фигуры
         bbox = canvas.bbox(canvas_img)
         if bbox:
             img_x, img_y = bbox[0], bbox[1]
@@ -340,15 +355,10 @@ def finish_shape(e):
     global shape_start_x, shape_start_y, shape_preview
     if shape_start_x is not None and mode in ["rectangle", "line", "circle"]:
         save_history()
-
-        # Рисуем фигуру на слое
         real_x, real_y = get_real_coords(e)
         draw = layers_draw[active_layer_index]
         color_rgb = current_color
-
-        # Используем размер кисти для толщины линий
         line_width = brush_size
-
         if mode == "rectangle":
             draw_rectangle(draw, shape_start_x, shape_start_y, real_x, real_y, color_rgb, line_width, fill_shape)
         elif mode == "line":
@@ -356,7 +366,6 @@ def finish_shape(e):
         elif mode == "circle":
             draw_circle(draw, shape_start_x, shape_start_y, real_x, real_y, color_rgb, line_width, fill_shape)
 
-            # Очищаем предпросмотр
         if shape_preview:
             canvas.delete(shape_preview)
             shape_preview = None
@@ -375,14 +384,17 @@ for name, m in [
     ("Прямоугольник", "rectangle"),
     ("Линия", "line"),
     ("Круг", "circle"),
+    ("Рука 🖐️", "hand"),
 ]:
     tk.Button(tool_panel, text=name, width=14, command=lambda m=m: set_mode(m)).pack(pady=2)
+
 
 # Кнопка для переключения заливки/контура
 def toggle_fill():
     global fill_shape
     fill_shape = not fill_shape
     fill_btn.config(text=f"🎨 Заливка: {'Вкл' if fill_shape else 'Выкл'}")
+
 
 fill_btn = tk.Button(tool_panel, text="🎨 Заливка: Выкл", width=14, command=toggle_fill)
 fill_btn.pack(pady=2)
@@ -424,7 +436,6 @@ color_preview = tk.Label(top, bg=current_color, width=3)
 color_preview.pack(side=tk.LEFT)
 
 
-# ПИПЕТКА - выбор цвета с холста
 def pick_color(e):
     global current_color, mode
     real_x, real_y = get_real_coords(e)
@@ -440,7 +451,6 @@ def pick_color(e):
         mode = "brush"
 
 
-# ЗАЛИВКА
 def flood_fill(x, y):
     save_history()
     img = layers[active_layer_index]
@@ -463,7 +473,6 @@ def flood_fill(x, y):
     update_canvas()
 
 
-# РИСОВАНИЕ КИСТЬЮ
 def smooth_line(x0, y0, x1, y1, color, r):
     dx, dy = x1 - x0, y1 - y0
     steps = max(abs(dx), abs(dy), 1)
@@ -476,25 +485,30 @@ def smooth_line(x0, y0, x1, y1, color, r):
 def draw(e):
     global last_x, last_y
 
-    # Для фигур используем отдельную обработку
-    if mode in ["rectangle", "line", "circle"]:
-        return # Фигуры обрабатываются в start_shape, draw_shape_preview, finish_shape
+    if mode in ["rectangle", "line", "circle", "hand"]:
+        return
+
     if mode == "picker":
         pick_color(e)
         return
+
     if mode == "fill":
         real_x, real_y = get_real_coords(e)
         flood_fill(real_x, real_y)
         return
+
     real_x, real_y = get_real_coords(e)
+
     if last_x is None:
         last_x, last_y = real_x, real_y
         save_history()
         return
+
     if mode == "brush":
         smooth_line(last_x, last_y, real_x, real_y, current_color, brush_size // 2)
     elif mode == "eraser":
         smooth_line(last_x, last_y, real_x, real_y, (0, 0, 0, 0), eraser_size // 2)
+
     last_x, last_y = real_x, real_y
     update_canvas()
 
@@ -504,13 +518,15 @@ def reset(_):
     last_x = last_y = None
 
 
-# Привязываем события для фигур и обычного рисования
-canvas.bind("<Button-1>", lambda e: start_shape(e) if mode in ["rectangle", "line", "circle"] else draw(e))
-canvas.bind("<B1-Motion>", lambda e: draw_shape_preview(e) if mode in ["rectangle", "line", "circle"] else draw(e))
-canvas.bind("<ButtonRelease-1>", lambda e: finish_shape(e) if mode in ["rectangle", "line", "circle"] else reset(e))
+# Привязываем события для фигур, руки и обычного рисования
+canvas.bind("<Button-1>", lambda e: start_pan(e) if mode == "hand" else (
+    start_shape(e) if mode in ["rectangle", "line", "circle"] else draw(e)))
+canvas.bind("<B1-Motion>", lambda e: do_pan(e) if mode == "hand" else (
+    draw_shape_preview(e) if mode in ["rectangle", "line", "circle"] else draw(e)))
+canvas.bind("<ButtonRelease-1>", lambda e: stop_pan(e) if mode == "hand" else (
+    finish_shape(e) if mode in ["rectangle", "line", "circle"] else reset(e)))
 
 
-# UNDO/REDO
 def undo():
     global layers
     if history:
