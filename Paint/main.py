@@ -277,7 +277,7 @@ def save_image():
 
 # Функция загрузки изображения
 def load_image():
-    """Загружает изображение как новый слой"""
+    # Загружает изображение как новый слой
     file_path = filedialog.askopenfilename(
         title="Выберите изображение",
         filetypes=[
@@ -552,23 +552,28 @@ def draw(e):
 
     # Для фигур используем отдельную обработку
     if mode in ["rectangle", "line", "circle", "hand"]:
-        return  # Фигуры обрабатываются в start_shape, draw_shape_preview, finish_shape
+        return
+
     if mode == "picker":
         pick_color(e)
         return
+
     if mode == "fill":
         real_x, real_y = get_real_coords(e)
         flood_fill(real_x, real_y)
         return
+
     real_x, real_y = get_real_coords(e)
     if last_x is None:
         last_x, last_y = real_x, real_y
         save_history()
         return
+
     if mode == "brush":
         smooth_line(last_x, last_y, real_x, real_y, current_color, brush_size // 2)
     elif mode == "eraser":
         smooth_line(last_x, last_y, real_x, real_y, (0, 0, 0, 0), eraser_size // 2)
+
     last_x, last_y = real_x, real_y
     update_canvas()
 
@@ -579,12 +584,9 @@ def reset(_):
 
 
 # Привязываем события для фигур, руки и обычного рисования
-canvas.bind("<Button-1>", lambda e: start_pan(e) if mode == "hand" else (
-    start_shape(e) if mode in ["rectangle", "line", "circle"] else draw(e)))
-canvas.bind("<B1-Motion>", lambda e: do_pan(e) if mode == "hand" else (
-    draw_shape_preview(e) if mode in ["rectangle", "line", "circle"] else draw(e)))
-canvas.bind("<ButtonRelease-1>", lambda e: stop_pan(e) if mode == "hand" else (
-    finish_shape(e) if mode in ["rectangle", "line", "circle"] else reset(e)))
+canvas.bind("<Button-1>", lambda e: start_pan(e) if mode == "hand" else (start_shape(e) if mode in ["rectangle", "line", "circle"] else draw(e)))
+canvas.bind("<B1-Motion>", lambda e: do_pan(e) if mode == "hand" else (draw_shape_preview(e) if mode in ["rectangle", "line", "circle"] else draw(e)))
+canvas.bind("<ButtonRelease-1>", lambda e: stop_pan(e) if mode == "hand" else (finish_shape(e) if mode in ["rectangle", "line", "circle"] else reset(e)))
 
 
 # UNDO/REDO
