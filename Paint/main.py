@@ -4,10 +4,10 @@ from PIL import Image, ImageDraw, ImageTk
 import copy
 from collections import deque
 
-# ОКНО ПРОГРАММЫ
+# ОКНО ПРОГРАМЫ
 root = tk.Tk()
-root.title("MyPaint — Layers Pro")
-root.geometry("1100x720")
+root.title("MyPaint 💙")
+root.geometry("1540x660")
 
 CANVAS_W, CANVAS_H = 850, 650
 
@@ -60,7 +60,7 @@ canvas_img = canvas.create_image(0, 0, anchor="nw", image=tk_image)
 
 
 def get_real_coords(e):
-    """Преобразует экранные координаты мыши в реальные координаты на изображении с учётом масштаба и смещения"""
+    # Преобразует экранные координаты мыши в реальные координаты на изображении с учётом масштаба
     bbox = canvas.bbox(canvas_img)
     if bbox:
         img_x, img_y = bbox[0], bbox[1]
@@ -165,8 +165,10 @@ def delete_layer():
 
 
 def clear_current_layer():
+    # Очищает текущий активный слой
     if messagebox.askyesno("Очистка слоя", f"Очистить слой {active_layer_index + 1}?"):
         save_history()
+        # Создаем новый пустой слой (полностью прозрачный)
         layers[active_layer_index] = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
         rebuild_drawers()
         update_canvas()
@@ -253,10 +255,12 @@ def set_mode(m):
     mode = m
     shape_start_x = None
     shape_start_y = None
+    # Очищаем предпросмотр при смене инструмента
     if shape_preview:
         canvas.delete(shape_preview)
 
 
+# Функция сохранения
 def save_image():
     file_path = filedialog.asksaveasfilename(
         defaultextension=".png",
@@ -271,8 +275,51 @@ def save_image():
         messagebox.showinfo("Сохранено", f"Изображение сохранено как:\n{file_path}")
 
 
+# Функция загрузки изображения
+def load_image():
+    """Загружает изображение как новый слой"""
+    file_path = filedialog.askopenfilename(
+        title="Выберите изображение",
+        filetypes=[
+            ("Изображения", "*.png *.jpg *.jpeg *.bmp *.gif *.tiff"),
+            ("PNG файлы", "*.png"),
+            ("JPEG файлы", "*.jpg *.jpeg"),
+            ("BMP файлы", "*.bmp"),
+            ("Все файлы", "*.*")
+        ]
+    )
+
+    if file_path:
+        try:
+            # Сохраняем историю
+            save_history()
+
+            # Загружаем изображение и конвертируем в RGBA
+            img = Image.open(file_path).convert("RGBA")
+
+            # Изменяем размер под холст
+            img = img.resize((CANVAS_W, CANVAS_H), Image.Resampling.LANCZOS)
+
+            # Добавляем как новый слой
+            layers.append(img)
+            layers_visibility.append(True)
+            rebuild_drawers()
+
+            # Делаем загруженный слой активным
+            global active_layer_index
+            active_layer_index = len(layers) - 1
+            update_layer_list()
+            update_canvas()
+
+            messagebox.showinfo("Загрузка", f"Изображение загружено как слой {active_layer_index + 1}!")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось загрузить изображение:\n{str(e)}")
+
+
 # ФУНКЦИИ ДЛЯ ФИГУР
 def draw_rectangle(draw, x1, y1, x2, y2, color, width, fill=False):
+    # Рисует прямоугольник с заданной толщиной и возможностью заливки
     left, top = min(x1, x2), min(y1, y2)
     right, bottom = max(x1, x2), max(y1, y2)
     if fill:
@@ -282,17 +329,23 @@ def draw_rectangle(draw, x1, y1, x2, y2, color, width, fill=False):
 
 
 def draw_line(draw, x1, y1, x2, y2, color, width):
+    # Рисует линию с заданной толщиной
     draw.line([x1, y1, x2, y2], fill=color, width=width)
 
 
 def draw_circle(draw, x1, y1, x2, y2, color, width, fill=False):
+    # Рисует круг с заданной толщиной и возможностью заливки
+
+    # Находим центр и радиус
     center_x = (x1 + x2) // 2
     center_y = (y1 + y2) // 2
     radius = max(abs(x2 - x1), abs(y2 - y1)) // 2
+
     left = center_x - radius
     right = center_x + radius
     top = center_y - radius
     bottom = center_y + radius
+
     if fill:
         draw.ellipse([left, top, right, bottom], fill=color, outline=color, width=width)
     else:
@@ -313,12 +366,14 @@ def start_shape(e):
 def draw_shape_preview(e):
     global shape_preview, shape_start_x, shape_start_y
     if shape_start_x is not None and mode in ["rectangle", "line", "circle"]:
+        # Удаляем старый предпросмотр
         if shape_preview:
             canvas.delete(shape_preview)
 
         real_x, real_y = get_real_coords(e)
         preview_width = brush_size
 
+        # Создаем новый предпросмотр в зависимости от фигуры
         bbox = canvas.bbox(canvas_img)
         if bbox:
             img_x, img_y = bbox[0], bbox[1]
@@ -355,10 +410,15 @@ def finish_shape(e):
     global shape_start_x, shape_start_y, shape_preview
     if shape_start_x is not None and mode in ["rectangle", "line", "circle"]:
         save_history()
+
+        # Рисуем фигуру на слое
         real_x, real_y = get_real_coords(e)
         draw = layers_draw[active_layer_index]
         color_rgb = current_color
+
+        # Используем размер кисти для толщины линий
         line_width = brush_size
+
         if mode == "rectangle":
             draw_rectangle(draw, shape_start_x, shape_start_y, real_x, real_y, color_rgb, line_width, fill_shape)
         elif mode == "line":
@@ -366,6 +426,7 @@ def finish_shape(e):
         elif mode == "circle":
             draw_circle(draw, shape_start_x, shape_start_y, real_x, real_y, color_rgb, line_width, fill_shape)
 
+            # Очищаем предпросмотр
         if shape_preview:
             canvas.delete(shape_preview)
             shape_preview = None
@@ -406,6 +467,7 @@ tk.Button(zoom_frame, text="🔍 +", width=6, command=zoom_in).pack(side=tk.LEFT
 tk.Button(zoom_frame, text="🔍 -", width=6, command=zoom_out).pack(side=tk.LEFT, padx=2)
 tk.Button(zoom_frame, text="100%", width=6, command=reset_zoom).pack(side=tk.LEFT, padx=2)
 
+tk.Button(tool_panel, text="📂 Загрузить", width=14, command=load_image).pack(pady=2)
 tk.Button(tool_panel, text="💾 Сохранить", width=14, command=save_image).pack(pady=2)
 tk.Button(tool_panel, text="⬅ назад", command=lambda: undo()).pack(pady=10)
 tk.Button(tool_panel, text="➡ вперед", command=lambda: redo()).pack()
@@ -436,6 +498,7 @@ color_preview = tk.Label(top, bg=current_color, width=3)
 color_preview.pack(side=tk.LEFT)
 
 
+# ПИПЕТКА - выбор цвета с холста
 def pick_color(e):
     global current_color, mode
     real_x, real_y = get_real_coords(e)
@@ -451,6 +514,7 @@ def pick_color(e):
         mode = "brush"
 
 
+# ЗАЛИВКА
 def flood_fill(x, y):
     save_history()
     img = layers[active_layer_index]
@@ -473,6 +537,7 @@ def flood_fill(x, y):
     update_canvas()
 
 
+# РИСОВАНИЕ КИСТЬЮ
 def smooth_line(x0, y0, x1, y1, color, r):
     dx, dy = x1 - x0, y1 - y0
     steps = max(abs(dx), abs(dy), 1)
@@ -485,30 +550,25 @@ def smooth_line(x0, y0, x1, y1, color, r):
 def draw(e):
     global last_x, last_y
 
+    # Для фигур используем отдельную обработку
     if mode in ["rectangle", "line", "circle", "hand"]:
-        return
-
+        return  # Фигуры обрабатываются в start_shape, draw_shape_preview, finish_shape
     if mode == "picker":
         pick_color(e)
         return
-
     if mode == "fill":
         real_x, real_y = get_real_coords(e)
         flood_fill(real_x, real_y)
         return
-
     real_x, real_y = get_real_coords(e)
-
     if last_x is None:
         last_x, last_y = real_x, real_y
         save_history()
         return
-
     if mode == "brush":
         smooth_line(last_x, last_y, real_x, real_y, current_color, brush_size // 2)
     elif mode == "eraser":
         smooth_line(last_x, last_y, real_x, real_y, (0, 0, 0, 0), eraser_size // 2)
-
     last_x, last_y = real_x, real_y
     update_canvas()
 
@@ -527,6 +587,7 @@ canvas.bind("<ButtonRelease-1>", lambda e: stop_pan(e) if mode == "hand" else (
     finish_shape(e) if mode in ["rectangle", "line", "circle"] else reset(e)))
 
 
+# UNDO/REDO
 def undo():
     global layers
     if history:
